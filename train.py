@@ -92,8 +92,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
-        if len(viewpoint_stack) > 0:
-            viewpoint_stack[0].original_image.cuda(non_blocking=True)
+        for i in range(min(len(viewpoint_stack), 10)):
+            viewpoint_stack[i].original_image.cuda(non_blocking=True)
 
         Ll1 = l1_loss(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
