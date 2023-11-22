@@ -37,7 +37,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.restore(model_params, opt)
-    if opt.override_iter:
+    if opt.override_iter != -1:
         first_iter = opt.override_iter
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
@@ -174,7 +174,9 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                 psnr_test = 0.0
                 for idx, viewpoint in enumerate(config['cameras']):
                     image = torch.clamp(renderFunc(viewpoint, scene.gaussians, *renderArgs)["render"], 0.0, 1.0)
-                    gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
+                    gt_image = torch.clamp(viewpoint.original_image_noresize.to("cuda"), 0.0, 1.0)
+                    # resize image to gt_image size
+                    image = torch.nn.functional.interpolate(image[None], size=gt_image.shape[1:3], mode='bilinear', align_corners=False)[0]
                     if tb_writer and (idx < 5):
                         tb_writer.add_images(config['name'] + "_view_{}/render".format(viewpoint.image_name), image[None], global_step=iteration)
                         if iteration == testing_iterations[0]:
