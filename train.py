@@ -11,7 +11,7 @@
 
 import os
 import torch
-from random import randint
+import random
 from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render, network_gui
 import sys
@@ -77,7 +77,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # Pick a random Camera
         if not viewpoint_stack:
             viewpoint_stack = scene.getTrainCameras().copy()
-        viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack)-1))
+            # shuffle the viewpoints
+            random.shuffle(viewpoint_stack)
+        viewpoint_cam = viewpoint_stack.pop(0)
 
         # Render
         if (iteration - 1) == debug_from:
@@ -90,6 +92,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
+        viewpoint_stack[0].original_image.cuda(non_blocking=True)
+
         Ll1 = l1_loss(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
         loss.backward()
