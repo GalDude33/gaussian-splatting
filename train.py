@@ -28,6 +28,26 @@ try:
 except ImportError:
     TENSORBOARD_FOUND = False
 
+
+class IterableCamerasDataset(torch.utils.data.IterableDataset):
+    def __init__(self, cameras, shuffle=True, data_device='cpu'):
+        self.cameras = cameras
+        self.data_device = data_device
+        self.shuffle = shuffle
+        for cam in self.cameras:
+            cam.original_image = cam.original_image.to(self.data_device)
+
+    def __iter__(self):
+        while True:
+            if self.shuffle:
+                random.shuffle(self.cameras)
+            for cam in self.cameras:
+                # deep clone cam
+                cam = cam.clone()
+                cam.original_image = cam.original_image.to(self.data_device)
+                yield cam
+
+
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
@@ -46,7 +66,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     iter_start = torch.cuda.Event(enable_timing = True)
     iter_end = torch.cuda.Event(enable_timing = True)
 
-    viewpoint_stack = None
+    train_dataloader = torch.utils.data.DataLoader(
+        IterableCamerasDataset(scene.getTrainCameras(), data_device=opt.data_device),
+        batch_size=1, shuffle=True, num_workers=1, pin_memory=True)
+    train_dataloader_iter = iter(train_dataloader)
+
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
@@ -74,12 +98,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if iteration % 1000 == 0:
             gaussians.oneupSHdegree()
 
-        # Pick a random Camera
-        if not viewpoint_stack:
-            viewpoint_stack = scene.getTrainCameras().copy()
-            # shuffle the viewpoints
-            random.shuffle(viewpoint_stack)
-        viewpoint_cam = viewpoint_stack.pop(0)
+        # # Pick a random Camera
+        # if not viewpoint_stack:
+        #     viewpoint_stack = scene.getTrainCameras().copy()
+        #     # shuffle the viewpoints
+        #     random.shuffle(viewpoint_stack)
+        # viewpoint_cam = viewpoint_stack.pop(0)
+        viewpoint_cam = next(train_dataloader_iter)
 
         # Render
         if (iteration - 1) == debug_from:
