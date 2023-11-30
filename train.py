@@ -47,7 +47,7 @@ class IterableCamerasDataset(torch.utils.data.IterableDataset):
             if self.shuffle:
                 random.shuffle(self.cameras)
             for cam in self.cameras:
-                original_image = cam.original_image.to(self.data_device)
+                original_image = cam.original_image.to('cuda', non_blocking=True)
                 yield dict(EasyCamera(original_image, cam.FoVx, cam.FoVy, cam.image_height, cam.image_width, cam.world_view_transform, cam.full_proj_transform, cam.camera_center, cam.image_name)._asdict())
 
 
@@ -71,7 +71,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     train_dataloader = torch.utils.data.DataLoader(
         IterableCamerasDataset(scene.getTrainCameras(), data_device=dataset.data_device),
-        batch_size=1, num_workers=1, pin_memory=False, multiprocessing_context='spawn')
+        batch_size=opt.batch_size, num_workers=1, pin_memory=False, multiprocessing_context='spawn')
     train_dataloader_iter = iter(train_dataloader)
 
     ema_loss_for_log = 0.0

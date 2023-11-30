@@ -88,6 +88,7 @@ class OptimizationParams(ParamGroup):
         self.densify_grad_threshold = 0.0002
         self.random_background = False
         self.override_iter = -1
+        self.batch_size = 1
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):
