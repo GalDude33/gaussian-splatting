@@ -10,6 +10,8 @@
 #
 
 import os
+from copy import copy
+
 import torch
 import random
 from utils.loss_utils import l1_loss, ssim
@@ -44,7 +46,7 @@ class IterableCamerasDataset(torch.utils.data.IterableDataset):
                 random.shuffle(self.cameras)
             for cam in self.cameras:
                 # deep clone cam
-                cam = cam.clone()
+                cam = copy(cam)
                 cam.original_image = cam.original_image.to(self.data_device)
                 yield cam
 
