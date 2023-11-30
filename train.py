@@ -112,7 +112,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         loss = 0
         # iterate over batch
         for ind in range(len(viewpoint_cams)):
-            viewpoint_cam = {viewpoint_cams[k][ind] for k in viewpoint_cams.keys()}
+            viewpoint_cam = {k: viewpoint_cams[k][ind] for k in viewpoint_cams.keys()}
             viewpoint_cam = EasyCamera(**viewpoint_cam)
 
             # Render
