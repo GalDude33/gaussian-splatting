@@ -31,6 +31,7 @@ except ImportError:
 
 class IterableCamerasDataset(torch.utils.data.IterableDataset):
     def __init__(self, cameras, shuffle=True, data_device='cpu'):
+        super().__init__()
         self.cameras = cameras
         self.data_device = data_device
         self.shuffle = shuffle
@@ -67,7 +68,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     iter_end = torch.cuda.Event(enable_timing = True)
 
     train_dataloader = torch.utils.data.DataLoader(
-        IterableCamerasDataset(scene.getTrainCameras(), data_device=opt.data_device),
+        IterableCamerasDataset(scene.getTrainCameras(), data_device=dataset.data_device),
         batch_size=1, shuffle=True, num_workers=1, pin_memory=True)
     train_dataloader_iter = iter(train_dataloader)
 
