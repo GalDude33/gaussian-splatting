@@ -71,7 +71,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     train_dataloader = torch.utils.data.DataLoader(
         IterableCamerasDataset(scene.getTrainCameras(), data_device=dataset.data_device),
-        batch_size=1, num_workers=1, pin_memory=True, multiprocessing_context='spawn')
+        batch_size=1, num_workers=0, pin_memory=True, multiprocessing_context='spawn')
     train_dataloader_iter = iter(train_dataloader)
 
     ema_loss_for_log = 0.0
