@@ -10,6 +10,7 @@
 #
 
 import os
+from collections import namedtuple
 from copy import copy
 
 import torch
@@ -30,6 +31,7 @@ try:
 except ImportError:
     TENSORBOARD_FOUND = False
 
+EasyCamera = namedtuple('EasyCamera', ['original_image', 'FoVx', 'FoVy', 'image_height', 'image_width', 'world_view_transform', 'full_proj_transform', 'camera_center', 'image_name'])
 
 class IterableCamerasDataset(torch.utils.data.IterableDataset):
     def __init__(self, cameras, shuffle=True, data_device='cpu'):
@@ -45,10 +47,8 @@ class IterableCamerasDataset(torch.utils.data.IterableDataset):
             if self.shuffle:
                 random.shuffle(self.cameras)
             for cam in self.cameras:
-                # deep clone cam
-                cam = copy(cam)
-                cam.original_image = cam.original_image.to(self.data_device)
-                yield cam
+                original_image = cam.original_image.to(self.data_device)
+                return EasyCamera(original_image, cam.FoVx, cam.FoVy, cam.image_height, cam.image_width, cam.world_view_transform, cam.full_proj_transform, cam.camera_center, cam.image_name)._asdict()
 
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
@@ -107,21 +107,29 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         #     # shuffle the viewpoints
         #     random.shuffle(viewpoint_stack)
         # viewpoint_cam = viewpoint_stack.pop(0)
-        viewpoint_cam = next(train_dataloader_iter)
+        viewpoint_cams = next(train_dataloader_iter)
 
-        # Render
-        if (iteration - 1) == debug_from:
-            pipe.debug = True
+        loss = 0
+        # iterate over batch
+        for ind in range(len(viewpoint_cams)):
+            viewpoint_cam = {viewpoint_cams[k][ind] for k in viewpoint_cams.keys()}
+            viewpoint_cam = EasyCamera(**viewpoint_cam)
 
-        bg = torch.rand((3), device="cuda") if opt.random_background else background
+            # Render
+            if (iteration - 1) == debug_from:
+                pipe.debug = True
 
-        render_pkg = render(viewpoint_cam, gaussians, pipe, bg)
-        image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
+            bg = torch.rand((3), device="cuda") if opt.random_background else background
 
-        # Loss
-        gt_image = viewpoint_cam.original_image.cuda()
-        Ll1 = l1_loss(image, gt_image)
-        loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+            render_pkg = render(viewpoint_cam, gaussians, pipe, bg)
+            image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
+
+            # Loss
+            gt_image = viewpoint_cam.original_image.cuda()
+            Ll1 = l1_loss(image, gt_image)
+            loss += (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+
+
         loss.backward()
 
         iter_end.record()
@@ -225,6 +233,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
         torch.cuda.empty_cache()
 
 if __name__ == "__main__":
+    torch.multiprocessing.set_start_method('spawn')
     # Set up command line argument parser
     parser = ArgumentParser(description="Training script parameters")
     lp = ModelParams(parser)
