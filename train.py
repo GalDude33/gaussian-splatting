@@ -48,7 +48,7 @@ class IterableCamerasDataset(torch.utils.data.IterableDataset):
                 random.shuffle(self.cameras)
             for cam in self.cameras:
                 original_image = cam.original_image.to(self.data_device)
-                return EasyCamera(original_image, cam.FoVx, cam.FoVy, cam.image_height, cam.image_width, cam.world_view_transform, cam.full_proj_transform, cam.camera_center, cam.image_name)._asdict()
+                return dict(EasyCamera(original_image, cam.FoVx, cam.FoVy, cam.image_height, cam.image_width, cam.world_view_transform, cam.full_proj_transform, cam.camera_center, cam.image_name)._asdict())
 
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
