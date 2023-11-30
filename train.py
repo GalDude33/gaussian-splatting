@@ -129,6 +129,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             Ll1 = l1_loss(image, gt_image)
             loss += (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
 
+        if opt.lambda_opacity_entropy > 0:
+            opacity = gaussians.get_opacity
+            # calculate entropy loss over opacity
+            entropy_loss = -torch.mean(opacity * torch.log(opacity + 1e-6) + (1.0 - opacity) * torch.log(1.0 - opacity + 1e-6))
+            loss += opt.lambda_opacity_entropy * entropy_loss
 
         loss.backward()
 
