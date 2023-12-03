@@ -69,11 +69,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     iter_start = torch.cuda.Event(enable_timing = True)
     iter_end = torch.cuda.Event(enable_timing = True)
 
-    train_dataloader = torch.utils.data.DataLoader(
-        IterableCamerasDataset(scene.getTrainCameras(), data_device=dataset.data_device),
-        batch_size=opt.batch_size, num_workers=1, pin_memory=False, multiprocessing_context='spawn')
-    train_dataloader_iter = iter(train_dataloader)
-
+    viewpoint_stack = None
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
@@ -101,19 +97,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if iteration % 1000 == 0:
             gaussians.oneupSHdegree()
 
-        # # Pick a random Camera
-        # if not viewpoint_stack:
-        #     viewpoint_stack = scene.getTrainCameras().copy()
-        #     # shuffle the viewpoints
-        #     random.shuffle(viewpoint_stack)
-        # viewpoint_cam = viewpoint_stack.pop(0)
-        viewpoint_cams = next(train_dataloader_iter)
-
         loss = 0
         # iterate over batch
-        for ind in range(len(viewpoint_cams['original_image'])):
-            viewpoint_cam = {k: viewpoint_cams[k][ind] for k in viewpoint_cams.keys()}
-            viewpoint_cam = EasyCamera(**viewpoint_cam)
+        for ind in range(opt.batch_size):
+            # Pick a random Camera
+            if not viewpoint_stack:
+                viewpoint_stack = scene.getTrainCameras().copy()
+                # shuffle the viewpoints
+                random.shuffle(viewpoint_stack)
+            viewpoint_cam = viewpoint_stack.pop(0)
 
             # Render
             if (iteration - 1) == debug_from:
@@ -129,11 +121,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             Ll1 = l1_loss(image, gt_image)
             loss += (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
 
-        if opt.lambda_opacity_entropy > 0:
-            opacity = gaussians.get_opacity
-            # calculate entropy loss over opacity
-            entropy_loss = -torch.mean(opacity * torch.log(opacity + 1e-6) + (1.0 - opacity) * torch.log(1.0 - opacity + 1e-6))
-            loss += opt.lambda_opacity_entropy * entropy_loss
+            if opt.lambda_opacity_entropy > 0:
+                opacity = gaussians.get_opacity
+                # calculate entropy loss over opacity
+                entropy_loss = -torch.mean(opacity * torch.log(opacity + 1e-6) + (1.0 - opacity) * torch.log(1.0 - opacity + 1e-6))
+                loss += opt.lambda_opacity_entropy * entropy_loss
 
         loss.backward()
 
