@@ -127,6 +127,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 entropy_loss = -torch.mean(opacity * torch.log(opacity + 1e-6) + (1.0 - opacity) * torch.log(1.0 - opacity + 1e-6))
                 loss += opt.lambda_opacity_entropy * entropy_loss
 
+        torch.cuda.empty_cache()
         loss.backward()
 
         iter_end.record()
